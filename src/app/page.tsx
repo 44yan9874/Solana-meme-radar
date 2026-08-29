@@ -11,6 +11,7 @@ type Token = {
   liquidity: number;
   volume24h: number;
   change24h: number;
+  ageMinutes: number;
   dexUrl: string;
   score: number;
 };
@@ -90,6 +91,7 @@ export default function Home() {
                   <th className="p-4 text-left">Liquidity</th>
                   <th className="p-4 text-left">24H Volume</th>
                   <th className="p-4 text-left">24H Change</th>
+                  <th className="p-4 text-left">Age</th>
                   <th className="p-4 text-left">Radar Score</th>
                   <th className="p-4 text-left">DEX</th>
                 </tr>
@@ -123,6 +125,9 @@ export default function Home() {
                     >
                       {token.change24h}%
                     </td>
+                    <td className="p-4">
+  {formatAge(token.ageMinutes)}
+</td>
 
                     <td className="p-4">
                       <span
@@ -186,4 +191,17 @@ function formatNumber(value: number) {
   }
 
   return value.toFixed(0);
+}
+function formatAge(minutes: number) {
+  if (!minutes) return "Unknown";
+
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+
+  if (minutes < 1440) {
+    return `${Math.floor(minutes / 60)}h`;
+  }
+
+  return `${Math.floor(minutes / 1440)}d`;
 }

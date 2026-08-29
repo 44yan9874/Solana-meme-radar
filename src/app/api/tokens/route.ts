@@ -51,16 +51,23 @@ export async function GET() {
           continue;
         }
 
-        const marketCap = solanaPair.marketCap || solanaPair.fdv || 0;
-        const liquidity = solanaPair.liquidity?.usd || 0;
-        const volume24h = solanaPair.volume?.h24 || 0;
-        const change24h = solanaPair.priceChange?.h24 || 0;
+const marketCap = solanaPair.marketCap || solanaPair.fdv || 0;
+const liquidity = solanaPair.liquidity?.usd || 0;
+const volume24h = solanaPair.volume?.h24 || 0;
+const change24h = solanaPair.priceChange?.h24 || 0;
+
+const pairCreatedAt = solanaPair.pairCreatedAt || 0;
+
+const ageMinutes = pairCreatedAt
+  ? Math.max(0, Math.floor((Date.now() - pairCreatedAt) / 60000))
+  : 0;
 
         const score = calculateScore({
           marketCap,
           liquidity,
           volume24h,
           change24h,
+          ageMinutes,
         });
 
         results.push({
@@ -73,6 +80,7 @@ export async function GET() {
           liquidity,
           volume24h,
           change24h,
+          ageMinutes,
           dexUrl: solanaPair.url || "#",
           score,
         });
@@ -104,13 +112,26 @@ function calculateScore({
   liquidity,
   volume24h,
   change24h,
+  ageMinutes
 }: {
   marketCap: number;
   liquidity: number;
   volume24h: number;
   change24h: number;
+  ageMinutes: number;
 }) {
   let score = 0;
+
+  // NEW LAUNCH BONUS
+if (ageMinutes > 0 && ageMinutes <= 10) {
+  score += 20;
+} else if (ageMinutes <= 30) {
+  score += 15;
+} else if (ageMinutes <= 60) {
+  score += 10;
+} else if (ageMinutes <= 180) {
+  score += 5;
+}
 
   // LOW MARKET CAP
   if (marketCap > 0 && marketCap < 50_000) {
