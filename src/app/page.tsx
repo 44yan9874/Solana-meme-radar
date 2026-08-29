@@ -96,9 +96,9 @@ export default function Home() {
               </thead>
 
               <tbody>
-                {tokens.map((token) => (
-                  <tr
-                    key={token.address}
+                {tokens.map((token, index) => (
+  <tr
+    key={`${token.address}-${index}`}
                     className="border-t border-gray-800 hover:bg-gray-950"
                   >
                     <td className="p-4">
