@@ -112,7 +112,7 @@ function calculateScore({
   liquidity,
   volume24h,
   change24h,
-  ageMinutes
+  ageMinutes,
 }: {
   marketCap: number;
   liquidity: number;
@@ -122,60 +122,87 @@ function calculateScore({
 }) {
   let score = 0;
 
-  // NEW LAUNCH BONUS
-if (ageMinutes > 0 && ageMinutes <= 10) {
-  score += 20;
-} else if (ageMinutes <= 30) {
-  score += 15;
-} else if (ageMinutes <= 60) {
-  score += 10;
-} else if (ageMinutes <= 180) {
-  score += 5;
-}
-
-  // LOW MARKET CAP
-  if (marketCap > 0 && marketCap < 50_000) {
-    score += 30;
-  } else if (marketCap < 100_000) {
-    score += 25;
-  } else if (marketCap < 250_000) {
+  // NEW LAUNCH — max 20
+  if (ageMinutes > 0 && ageMinutes <= 10) {
     score += 20;
-  } else if (marketCap < 500_000) {
+  } else if (ageMinutes <= 30) {
+    score += 17;
+  } else if (ageMinutes <= 60) {
+    score += 14;
+  } else if (ageMinutes <= 180) {
     score += 10;
-  }
-
-  // LIQUIDITY
-  if (liquidity >= 50_000) {
-    score += 25;
-  } else if (liquidity >= 20_000) {
-    score += 20;
-  } else if (liquidity >= 10_000) {
-    score += 15;
-  } else if (liquidity >= 5_000) {
+  } else if (ageMinutes <= 720) {
     score += 5;
   }
 
-  // 24H VOLUME
-  if (volume24h >= 250_000) {
-    score += 25;
-  } else if (volume24h >= 100_000) {
+  // MARKET CAP — max 20
+  if (marketCap >= 25_000 && marketCap < 75_000) {
     score += 20;
-  } else if (volume24h >= 50_000) {
-    score += 15;
-  } else if (volume24h >= 10_000) {
+  } else if (marketCap >= 75_000 && marketCap < 150_000) {
+    score += 18;
+  } else if (marketCap >= 150_000 && marketCap < 300_000) {
+    score += 14;
+  } else if (marketCap >= 300_000 && marketCap < 500_000) {
     score += 10;
+  } else if (marketCap > 0 && marketCap < 25_000) {
+    score += 6;
   }
 
-  // PRICE MOMENTUM
-  if (change24h >= 100) {
+  // LIQUIDITY — max 20
+  if (liquidity >= 75_000) {
     score += 20;
-  } else if (change24h >= 50) {
+  } else if (liquidity >= 40_000) {
+    score += 18;
+  } else if (liquidity >= 20_000) {
+    score += 14;
+  } else if (liquidity >= 10_000) {
+    score += 9;
+  } else if (liquidity >= 5_000) {
+    score += 4;
+  }
+
+  // VOLUME — max 20
+  if (volume24h >= 500_000) {
+    score += 20;
+  } else if (volume24h >= 250_000) {
+    score += 18;
+  } else if (volume24h >= 100_000) {
     score += 15;
-  } else if (change24h >= 20) {
+  } else if (volume24h >= 50_000) {
+    score += 11;
+  } else if (volume24h >= 20_000) {
+    score += 7;
+  } else if (volume24h >= 5_000) {
+    score += 3;
+  }
+
+  // MOMENTUM — max 20
+  if (change24h >= 20 && change24h < 100) {
+    score += 12;
+  } else if (change24h >= 100 && change24h < 300) {
+    score += 18;
+  } else if (change24h >= 300 && change24h < 1000) {
+    score += 20;
+  } else if (change24h >= 1000) {
     score += 10;
   } else if (change24h > 0) {
-    score += 5;
+    score += 6;
   }
 
-  return Math.min(score, 100);
+  // RISK PENALTIES
+  if (liquidity < 5_000) {
+    score -= 20;
+  }
+
+  if (marketCap > 0 && marketCap < 10_000) {
+    score -= 10;
+  }
+
+  if (change24h <= -50) {
+    score -= 15;
+  } else if (change24h <= -25) {
+    score -= 8;
+  }
+
+  return Math.max(0, Math.min(score, 100));
 }
