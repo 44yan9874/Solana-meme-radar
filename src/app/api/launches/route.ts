@@ -43,7 +43,7 @@ export async function GET() {
 
     const signatures = (sigData.result || [])
   .filter((item: any) => item.err === null)
-  .slice(0, 20);
+  .slice(0, 5);
 
     // 2. Fetch transactions IN PARALLEL
     const transactions = await Promise.all(
