@@ -185,10 +185,64 @@ if (!mint) continue;
       (a, b) =>
         a.ageSeconds - b.ageSeconds
     );
+const enrichedLaunches = await Promise.all(
+  unique.map(async (coin) => {
+    try {
+      const dexResponse = await fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${coin.mint}`,
+        {
+          cache: "no-store",
+        }
+      );
 
+      if (!dexResponse.ok) {
+        return {
+          ...coin,
+          dexStatus: "WAITING_FOR_PAIR",
+        };
+      }
+
+      const dexData = await dexResponse.json();
+
+      const solanaPairs = (dexData.pairs || [])
+        .filter((pair: any) => pair.chainId === "solana")
+        .sort(
+          (a: any, b: any) =>
+            (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+        );
+
+      const pair = solanaPairs[0];
+
+      if (!pair) {
+        return {
+          ...coin,
+          dexStatus: "WAITING_FOR_PAIR",
+        };
+      }
+
+      return {
+        ...coin,
+        dexStatus: "LIVE",
+        name: pair.baseToken?.name || "Unknown",
+        symbol: pair.baseToken?.symbol || "UNKNOWN",
+        priceUsd: pair.priceUsd || "0",
+        marketCap: pair.marketCap || pair.fdv || 0,
+        liquidity: pair.liquidity?.usd || 0,
+        volume24h: pair.volume?.h24 || 0,
+        change24h: pair.priceChange?.h24 || 0,
+        dexUrl: pair.url || "#",
+      };
+    } catch {
+      return {
+        ...coin,
+        dexStatus: "WAITING_FOR_PAIR",
+      };
+    }
+  })
+);
     return NextResponse.json({
-      launches: unique,
-      count: unique.length,
+      launches: enrichedLaunches,
+count: enrichedLaunches.length,
       scannedTransactions: signatures.length,
       scanner: "Pump.fun new coin detector",
     });
