@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 
+import {
+  rememberLaunch,
+  markLaunchLive,
+  getWatchedLaunches,
+} from "../../../lib/launchWatchlist";
+
 const PUMP_PROGRAM =
   "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 
@@ -150,7 +156,7 @@ if (!mint) continue;
           (Date.now() - timestamp) / 1000
         )
       );
-
+rememberLaunch(mint);
       launches.push({
         mint,
         signature: result.signature,
@@ -185,7 +191,35 @@ if (!mint) continue;
       (a, b) =>
         a.ageSeconds - b.ageSeconds
     );
-const enrichedLaunches = await Promise.all(
+
+const watchedLaunches = getWatchedLaunches().map((watched) => {
+  const ageSeconds = Math.max(
+    0,
+    Math.floor((Date.now() - watched.firstSeen) / 1000)
+  );
+
+  return {
+    mint: watched.mint,
+    signature: "",
+    ageSeconds,
+    age: formatAge(ageSeconds),
+    launchpad: "Pump.fun",
+    stage: "BONDING_CURVE",
+    status: "PRE-LAUNCH",
+    tokenUrl: `https://solscan.io/token/${watched.mint}`,
+    transactionUrl: "#",
+  };
+});
+
+const combinedLaunches = Array.from(
+  new Map(
+    [...watchedLaunches, ...unique].map((coin) => [
+      coin.mint,
+      coin,
+    ])
+  ).values()
+);
+    const enrichedLaunches = await Promise.all(
   unique.map(async (coin) => {
     try {
       const dexResponse = await fetch(
@@ -219,7 +253,7 @@ const enrichedLaunches = await Promise.all(
           dexStatus: "WAITING_FOR_PAIR",
         };
       }
-
+markLaunchLive(coin.mint);
       return {
         ...coin,
         dexStatus: "LIVE",
