@@ -43,7 +43,7 @@ export async function GET() {
 
     const signatures = (sigData.result || [])
   .filter((item: any) => item.err === null)
-  .slice(0, 5);
+  .slice(0, 100);
 
     // 2. Fetch transactions IN PARALLEL
     const transactions = await Promise.all(
@@ -90,58 +90,55 @@ export async function GET() {
 
       const tx = result.transaction;
 
-      const logs: string[] =
-        tx.meta?.logMessages || [];
-
-      const isCreate = logs.some(
-        (log) =>
-          log.includes("Instruction: CreateV2") ||
-          log.includes("Instruction: Create")
-      );
-
-      if (!isCreate) continue;
-
       const keys =
-        tx.transaction?.message?.accountKeys || [];
+  tx.transaction?.message?.accountKeys || [];
 
-      // Pump create_v2 account #1 = new mint.
-      // Find Pump instruction and take its first account.
-      let mint: string | null = null;
+const instructions =
+  tx.transaction?.message?.instructions || [];
 
-      const instructions =
-        tx.transaction?.message?.instructions || [];
+let mint: string | null = null;
 
-      for (const instruction of instructions) {
-        if (
-          instruction.programId === PUMP_PROGRAM &&
-          Array.isArray(instruction.accounts) &&
-          instruction.accounts.length > 0
-        ) {
-          const firstAccount = instruction.accounts[0];
+// A Pump create_v2 instruction has the new mint as account #1.
+// The mint account is also a signer, which lets us distinguish
+// creation instructions from normal buys/sells/other Pump activity.
+for (const instruction of instructions) {
+  if (
+    instruction.programId !== PUMP_PROGRAM ||
+    !Array.isArray(instruction.accounts) ||
+    instruction.accounts.length === 0
+  ) {
+    continue;
+  }
 
-          if (typeof firstAccount === "string") {
-            mint = firstAccount;
-          } else if (firstAccount?.pubkey) {
-            mint = firstAccount.pubkey;
-          }
+  const firstAccount = instruction.accounts[0];
 
-          if (mint) break;
-        }
-      }
+  const firstPubkey =
+    typeof firstAccount === "string"
+      ? firstAccount
+      : firstAccount?.pubkey;
 
-      // Fallback for parsed transaction formats
-      if (!mint && keys.length > 0) {
-        const possibleMint = keys.find(
-          (key: any) =>
-            key.signer === true &&
-            key.writable === true &&
-            key.pubkey !== PUMP_PROGRAM
-        );
+  if (!firstPubkey) continue;
 
-        mint = possibleMint?.pubkey || null;
-      }
+  const keyInfo = keys.find((key: any) => {
+    const pubkey =
+      typeof key === "string"
+        ? key
+        : key?.pubkey;
 
-      if (!mint) continue;
+    return pubkey === firstPubkey;
+  });
+
+  const isSigner =
+    typeof keyInfo === "object" &&
+    keyInfo?.signer === true;
+
+  if (isSigner) {
+    mint = firstPubkey;
+    break;
+  }
+}
+
+if (!mint) continue;
 
       const timestamp = tx.blockTime
         ? tx.blockTime * 1000
