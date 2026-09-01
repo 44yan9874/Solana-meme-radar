@@ -220,7 +220,7 @@ const combinedLaunches = Array.from(
   ).values()
 );
     const enrichedLaunches = await Promise.all(
-  unique.map(async (coin) => {
+  combinedLaunches.map(async (coin) => {
     try {
       const dexResponse = await fetch(
         `https://api.dexscreener.com/latest/dex/tokens/${coin.mint}`,

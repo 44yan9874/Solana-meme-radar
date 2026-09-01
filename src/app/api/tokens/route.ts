@@ -18,9 +18,13 @@ export async function GET() {
 
     const boostedTokens = await response.json();
 
-    const solanaTokens = boostedTokens
+    const solanaTokens = Array.from(
+  new Map(
+    boostedTokens
       .filter((token: any) => token.chainId === "solana")
-      .slice(0, 20);
+      .map((token: any) => [token.tokenAddress, token])
+  ).values()
+).slice(0, 20);
 
     const results = [];
 
@@ -55,7 +59,11 @@ const marketCap = solanaPair.marketCap || solanaPair.fdv || 0;
 const liquidity = solanaPair.liquidity?.usd || 0;
 const volume24h = solanaPair.volume?.h24 || 0;
 const change24h = solanaPair.priceChange?.h24 || 0;
-
+const buys24h = solanaPair.txns?.h24?.buys || 0;
+const sells24h = solanaPair.txns?.h24?.sells || 0;
+const buyPressure = buys24h + sells24h > 0
+  ? buys24h / (buys24h + sells24h)
+  : 0;
 const pairCreatedAt = solanaPair.pairCreatedAt || 0;
 
 const ageMinutes = pairCreatedAt
@@ -67,6 +75,9 @@ const ageMinutes = pairCreatedAt
           liquidity,
           volume24h,
           change24h,
+          buys24h,
+sells24h,
+buyPressure,
           ageMinutes,
         });
 
@@ -80,6 +91,9 @@ const ageMinutes = pairCreatedAt
           liquidity,
           volume24h,
           change24h,
+          buys24h,
+sells24h,
+buyPressure,
           ageMinutes,
           dexUrl: solanaPair.url || "#",
           score,
@@ -112,12 +126,18 @@ function calculateScore({
   liquidity,
   volume24h,
   change24h,
+  buys24h,
+sells24h,
+buyPressure,
   ageMinutes,
 }: {
   marketCap: number;
   liquidity: number;
   volume24h: number;
   change24h: number;
+  buys24h: number;
+sells24h: number;
+buyPressure: number;
   ageMinutes: number;
 }) {
   let score = 0;
@@ -188,6 +208,21 @@ function calculateScore({
   } else if (change24h > 0) {
     score += 6;
   }
+
+  // BUY PRESSURE - max 10
+const totalTxns = buys24h + sells24h;
+
+if (totalTxns >= 20) {
+  if (buyPressure >= 0.60 && buyPressure <= 0.75) {
+    score += 10;
+  } else if (buyPressure > 0.50 && buyPressure < 0.60) {
+    score += 6;
+  } else if (buyPressure > 0.75 && buyPressure <= 0.90) {
+    score += 5;
+  } else if (buyPressure < 0.40) {
+    score -= 8;
+  }
+}
 
   // RISK PENALTIES
   if (liquidity < 5_000) {
