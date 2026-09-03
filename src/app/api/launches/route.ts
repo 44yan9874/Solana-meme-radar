@@ -230,11 +230,15 @@ const combinedLaunches = Array.from(
       );
 
       if (!dexResponse.ok) {
-        return {
-          ...coin,
-          dexStatus: "WAITING_FOR_PAIR",
-        };
-      }
+  return {
+    ...coin,
+    dexStatus: "WAITING_FOR_PAIR",
+    website: null,
+    twitter: null,
+    telegram: null,
+    socialScore: 0,
+  };
+}
 
       const dexData = await dexResponse.json();
 
@@ -293,11 +297,15 @@ socialScore,
         dexUrl: pair.url || "#",
       };
     } catch {
-      return {
-        ...coin,
-        dexStatus: "WAITING_FOR_PAIR",
-      };
-    }
+  return {
+    ...coin,
+    dexStatus: "WAITING_FOR_PAIR",
+    website: null,
+    twitter: null,
+    telegram: null,
+    socialScore: 0,
+  };
+}
   })
 );
     return NextResponse.json({
