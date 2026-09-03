@@ -253,10 +253,36 @@ const combinedLaunches = Array.from(
           dexStatus: "WAITING_FOR_PAIR",
         };
       }
+      const websites = pair.info?.websites || [];
+const socials = pair.info?.socials || [];
+
+const website =
+  websites.find((item: any) => item.url)?.url || null;
+
+const twitter =
+  socials.find(
+    (item: any) =>
+      item.type?.toLowerCase() === "twitter" ||
+      item.type?.toLowerCase() === "x"
+  )?.url || null;
+
+const telegram =
+  socials.find(
+    (item: any) => item.type?.toLowerCase() === "telegram"
+  )?.url || null;
+
+const socialScore =
+  (website ? 10 : 0) +
+  (twitter ? 15 : 0) +
+  (telegram ? 10 : 0);
 markLaunchLive(coin.mint);
       return {
         ...coin,
         dexStatus: "LIVE",
+        website,
+twitter,
+telegram,
+socialScore,
         name: pair.baseToken?.name || "Unknown",
         symbol: pair.baseToken?.symbol || "UNKNOWN",
         priceUsd: pair.priceUsd || "0",
