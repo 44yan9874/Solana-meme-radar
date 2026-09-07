@@ -252,11 +252,15 @@ const combinedLaunches = Array.from(
       const pair = solanaPairs[0];
 
       if (!pair) {
-        return {
-          ...coin,
-          dexStatus: "WAITING_FOR_PAIR",
-        };
-      }
+  return {
+    ...coin,
+    dexStatus: "WAITING_FOR_PAIR",
+    website: null,
+    twitter: null,
+    telegram: null,
+    socialScore: 0,
+  };
+}  
       const websites = pair.info?.websites || [];
 const socials = pair.info?.socials || [];
 
