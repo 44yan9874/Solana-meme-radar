@@ -278,11 +278,24 @@ const telegram =
   socials.find(
     (item: any) => item.type?.toLowerCase() === "telegram"
   )?.url || null;
-
+const socialPresenceCount =
+  (website ? 1 : 0) +
+  (twitter ? 1 : 0) +
+  (telegram ? 1 : 0);
+  
 const socialScore =
   (website ? 10 : 0) +
   (twitter ? 15 : 0) +
   (telegram ? 10 : 0);
+
+  const socialStrength =
+  socialPresenceCount === 3
+    ? "STRONG"
+    : socialPresenceCount === 2
+    ? "MEDIUM"
+    : socialPresenceCount === 1
+    ? "WEAK"
+    : "NONE";
 markLaunchLive(coin.mint);
       return {
         ...coin,
@@ -290,6 +303,8 @@ markLaunchLive(coin.mint);
         website,
 twitter,
 telegram,
+socialPresenceCount,
+socialStrength,
 socialScore,
         name: pair.baseToken?.name || "Unknown",
         symbol: pair.baseToken?.symbol || "UNKNOWN",
