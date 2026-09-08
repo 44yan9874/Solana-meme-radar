@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  extractSocialLinks,
+  calculateSocialScore,
+} from "../../../lib/social";
 
 export async function GET() {
   try {
@@ -19,7 +23,7 @@ export async function GET() {
     const boostedTokens = await response.json();
 
     const solanaTokens = Array.from(
-  new Map(
+  new Map<string, any>(
     boostedTokens
       .filter((token: any) => token.chainId === "solana")
       .map((token: any) => [token.tokenAddress, token])
