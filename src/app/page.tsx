@@ -13,6 +13,15 @@ type Token = {
   change24h: number;
   ageMinutes: number;
   dexUrl: string;
+  twitter: string | null;
+telegram: string | null;
+website: string | null;
+socialScore: number;
+socialBreakdown: {
+  twitter: number;
+  telegram: number;
+  website: number;
+};
   score: number;
 };
 
@@ -92,6 +101,7 @@ export default function Home() {
                   <th className="p-4 text-left">24H Volume</th>
                   <th className="p-4 text-left">24H Change</th>
                   <th className="p-4 text-left">Age</th>
+                  <th className="p-4 text-left">Socials</th>
                   <th className="p-4 text-left">Radar Score</th>
                   <th className="p-4 text-left">DEX</th>
                 </tr>
@@ -127,6 +137,46 @@ export default function Home() {
                     </td>
                     <td className="p-4">
   {formatAge(token.ageMinutes)}
+</td>
+<td className="p-4">
+  <div className="flex gap-2 items-center">
+    {token.twitter && (
+      <a
+        href={token.twitter}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-400 hover:underline"
+      >
+        X
+      </a>
+    )}
+
+    {token.telegram && (
+      <a
+        href={token.telegram}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-400 hover:underline"
+      >
+        TG
+      </a>
+    )}
+
+    {token.website && (
+      <a
+        href={token.website}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-400 hover:underline"
+      >
+        Web
+      </a>
+    )}
+
+    <span className="text-gray-400">
+      {token.socialScore}/100
+    </span>
+  </div>
 </td>
 
                     <td className="p-4">

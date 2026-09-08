@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   extractSocialLinks,
   calculateSocialScore,
-} from "../../../lib/social";
+ } from "@/social";
 
 export async function GET() {
   try {
@@ -73,7 +73,8 @@ const pairCreatedAt = solanaPair.pairCreatedAt || 0;
 const ageMinutes = pairCreatedAt
   ? Math.max(0, Math.floor((Date.now() - pairCreatedAt) / 60000))
   : 0;
-
+const socialLinks = extractSocialLinks(solanaPair);
+const socialScore = calculateSocialScore(socialLinks);
         const score = calculateScore({
           marketCap,
           liquidity,
@@ -101,6 +102,11 @@ buyPressure,
           ageMinutes,
           dexUrl: solanaPair.url || "#",
           score,
+          twitter: socialLinks.twitter,
+telegram: socialLinks.telegram,
+website: socialLinks.website,
+socialScore: socialScore.score,
+socialBreakdown: socialScore.breakdown,
         });
       } catch (error) {
         console.error("Failed to process token:", error);
