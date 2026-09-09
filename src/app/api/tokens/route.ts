@@ -4,6 +4,8 @@ import {
   calculateSocialScore,
  } from "@/social";
 
+ import { getTelegramMemberCount } from "@/lib/telegram";
+
 export async function GET() {
   try {
     const response = await fetch(
@@ -73,8 +75,25 @@ const pairCreatedAt = solanaPair.pairCreatedAt || 0;
 const ageMinutes = pairCreatedAt
   ? Math.max(0, Math.floor((Date.now() - pairCreatedAt) / 60000))
   : 0;
+  const MAX_AGE_MINUTES = 24 * 60;
+
+if (!pairCreatedAt || ageMinutes > MAX_AGE_MINUTES) {
+  continue;
+}
 const socialLinks = extractSocialLinks(solanaPair);
-const socialScore = calculateSocialScore(socialLinks);
+const telegramMembers = await getTelegramMemberCount(
+  socialLinks.telegram
+);
+const socialMetrics = {
+  twitterFollowers: null,
+  twitterEngagement: null,
+  telegramMembers,
+  mentions24h: null,
+};
+const socialScore = calculateSocialScore(
+  socialLinks,
+  socialMetrics
+);
         const score = calculateScore({
           marketCap,
           liquidity,

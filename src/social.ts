@@ -4,11 +4,19 @@ export type SocialLinks = {
   website: string | null;
 };
 
+export type SocialMetrics = {
+  twitterFollowers: number | null;
+  twitterEngagement: number | null;
+  telegramMembers: number | null;
+  mentions24h: number | null;
+};
+
 export type SocialScore = {
   score: number;
   breakdown: {
     twitter: number;
     telegram: number;
+    traction: number;
     website: number;
   };
 };
@@ -37,8 +45,42 @@ export function extractSocialLinks(token: any): SocialLinks {
   };
 }
 
+export function calculateTractionScore(
+  metrics: SocialMetrics
+): number {
+  let score = 0;
+
+  if (metrics.twitterFollowers !== null) {
+    if (metrics.twitterFollowers >= 10000) score += 25;
+    else if (metrics.twitterFollowers >= 2500) score += 18;
+    else if (metrics.twitterFollowers >= 500) score += 10;
+    else if (metrics.twitterFollowers >= 100) score += 5;
+  }
+
+  if (metrics.telegramMembers !== null) {
+    if (metrics.telegramMembers >= 5000) score += 20;
+    else if (metrics.telegramMembers >= 1000) score += 12;
+    else if (metrics.telegramMembers >= 250) score += 6;
+  }
+
+  if (metrics.mentions24h !== null) {
+    if (metrics.mentions24h >= 100) score += 25;
+    else if (metrics.mentions24h >= 25) score += 15;
+    else if (metrics.mentions24h >= 5) score += 7;
+  }
+
+  if (metrics.twitterEngagement !== null) {
+    if (metrics.twitterEngagement >= 10) score += 30;
+    else if (metrics.twitterEngagement >= 5) score += 20;
+    else if (metrics.twitterEngagement >= 2) score += 10;
+  }
+
+  return Math.min(score, 100);
+}
 export function calculateSocialScore(
-  links: SocialLinks
+  
+    links: SocialLinks,
+  metrics?: SocialMetrics
 ): SocialScore {
   let twitterScore = 0;
   let telegramScore = 0;
@@ -47,13 +89,20 @@ export function calculateSocialScore(
   if (links.twitter) twitterScore = 35;
   if (links.telegram) telegramScore = 35;
   if (links.website) websiteScore = 30;
+  const tractionScore = metrics
+  ? calculateTractionScore(metrics)
+  : 0;
 
   return {
-    score: twitterScore + telegramScore + websiteScore,
+    score: Math.min(
+  twitterScore + telegramScore + websiteScore + tractionScore,
+  100
+),
     breakdown: {
       twitter: twitterScore,
       telegram: telegramScore,
       website: websiteScore,
+      traction: tractionScore,
     },
   };
 }
