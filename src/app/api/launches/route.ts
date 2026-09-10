@@ -6,6 +6,8 @@ import {
   getWatchedLaunches,
 } from "../../../lib/launchWatchlist";
 
+import { calculateSocialScore } from "../../../social";
+
 const PUMP_PROGRAM =
   "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 
@@ -283,10 +285,11 @@ const socialPresenceCount =
   (twitter ? 1 : 0) +
   (telegram ? 1 : 0);
   
-const socialScore =
-  (website ? 10 : 0) +
-  (twitter ? 15 : 0) +
-  (telegram ? 10 : 0);
+const socialScore = calculateSocialScore({
+  website,
+  twitter,
+  telegram,
+}).score;
 
   const socialStrength =
   socialPresenceCount === 3

@@ -94,16 +94,20 @@ const socialScore = calculateSocialScore(
   socialLinks,
   socialMetrics
 );
-        const score = calculateScore({
-          marketCap,
-          liquidity,
-          volume24h,
-          change24h,
-          buys24h,
-sells24h,
-buyPressure,
-          ageMinutes,
-        });
+        const baseScore = calculateScore({
+  marketCap,
+  liquidity,
+  volume24h,
+  change24h,
+  buys24h,
+  sells24h,
+  buyPressure,
+  ageMinutes,
+});
+
+const score = Math.round(
+  baseScore * 0.75 + socialScore.score * 0.25
+);
 
         results.push({
           name: solanaPair.baseToken?.name || "Unknown",

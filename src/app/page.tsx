@@ -102,7 +102,7 @@ export default function Home() {
                   <th className="p-4 text-left">24H Change</th>
                   <th className="p-4 text-left">Age</th>
                   <th className="p-4 text-left">Socials</th>
-                  <th className="p-4 text-left">Radar Score</th>
+                  <th className="p-4 text-left">Combined Score</th>
                   <th className="p-4 text-left">DEX</th>
                 </tr>
               </thead>
