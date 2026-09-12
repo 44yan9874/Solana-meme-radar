@@ -86,7 +86,17 @@ export function calculateSocialScore(
   let telegramScore = 0;
   let websiteScore = 0;
 
-  if (links.twitter) twitterScore = 35;
+  if (links.twitter) {
+  if (metrics?.twitterFollowers != null) {
+    if (metrics.twitterFollowers >= 10000) twitterScore = 35;
+    else if (metrics.twitterFollowers >= 2500) twitterScore = 28;
+    else if (metrics.twitterFollowers >= 500) twitterScore = 20;
+    else if (metrics.twitterFollowers >= 100) twitterScore = 12;
+    else twitterScore = 6;
+  } else {
+    twitterScore = 10;
+  }
+}
   if (links.telegram) telegramScore = 35;
   if (links.website) websiteScore = 30;
   const tractionScore = metrics
@@ -105,4 +115,43 @@ export function calculateSocialScore(
       traction: tractionScore,
     },
   };
+}
+
+export function extractTwitterUsername(url: string | null): string | null {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+
+    if (
+      hostname !== "x.com" &&
+      hostname !== "www.x.com" &&
+      hostname !== "twitter.com" &&
+      hostname !== "www.twitter.com"
+    ) {
+      return null;
+    }
+
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const username = parts[0];
+
+    if (!username) return null;
+
+    const blocked = [
+      "home",
+      "search",
+      "explore",
+      "notifications",
+      "messages",
+      "i",
+      "intent",
+    ];
+
+    if (blocked.includes(username.toLowerCase())) return null;
+
+    return username.replace(/^@/, "");
+  } catch {
+    return null;
+  }
 }
