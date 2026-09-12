@@ -6,6 +6,35 @@ import {
 
  import { getTelegramMemberCount } from "@/lib/telegram";
 
+ type BoostedToken = {
+  chainId?: string;
+  tokenAddress: string;
+  [key: string]: unknown;
+};
+
+type DexPair = {
+  chainId?: string;
+  marketCap?: number;
+  fdv?: number;
+  liquidity?: {
+    usd?: number;
+  };
+  volume?: {
+    h24?: number;
+  };
+  priceChange?: {
+    h24?: number;
+  };
+  txns?: {
+    h24?: {
+      buys?: number;
+      sells?: number;
+    };
+  };
+  pairCreatedAt?: number;
+  [key: string]: unknown;
+};
+
 export async function GET() {
   try {
     const response = await fetch(
@@ -22,13 +51,13 @@ export async function GET() {
       throw new Error("DEX Screener request failed");
     }
 
-    const boostedTokens = await response.json();
+    const boostedTokens = (await response.json()) as BoostedToken[];
 
     const solanaTokens = Array.from(
-  new Map<string, any>(
-    boostedTokens
-      .filter((token: any) => token.chainId === "solana")
-      .map((token: any) => [token.tokenAddress, token])
+ new Map<string, BoostedToken>(
+  boostedTokens
+    .filter((token) => token.chainId === "solana")
+    .map((token) => [token.tokenAddress, token])
   ).values()
 ).slice(0, 20);
 
@@ -47,13 +76,13 @@ export async function GET() {
           continue;
         }
 
-        const pairData = await pairResponse.json();
-        const pairs = pairData.pairs || [];
+        const pairData = (await pairResponse.json()) as { pairs?: DexPair[] };
+const pairs = pairData.pairs || [];
 
-        const solanaPair = pairs
-          .filter((pair: any) => pair.chainId === "solana")
-          .sort(
-            (a: any, b: any) =>
+const solanaPair = pairs
+  .filter((pair) => pair.chainId === "solana")
+  .sort(
+    (a, b) =>
               (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
           )[0];
 

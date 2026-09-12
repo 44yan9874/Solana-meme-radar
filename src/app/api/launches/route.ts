@@ -10,7 +10,52 @@ import { calculateSocialScore } from "../../../social";
 
 const PUMP_PROGRAM =
   "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+type SignatureItem = {
+  signature: string;
+  err: unknown | null;
+};
 
+type Launch = {
+  mint: string;
+  signature: string;
+  ageSeconds: number;
+  age: string;
+  launchpad: string;
+  stage: string;
+  status: string;
+  tokenUrl: string;
+  transactionUrl: string;
+};
+
+type DexPair = {
+  chainId?: string;
+  liquidity?: {
+    usd?: number;
+  };
+  info?: {
+    websites?: {
+      url?: string | null;
+    }[];
+    socials?: {
+      type?: string | null;
+      url?: string | null;
+    }[];
+  };
+  baseToken?: {
+    name?: string;
+    symbol?: string;
+  };
+  priceUsd?: string;
+  marketCap?: number;
+  fdv?: number;
+  volume?: {
+    h24?: number;
+  };
+  priceChange?: {
+    h24?: number;
+  };
+  url?: string;
+};
 export async function GET() {
   const apiKey = process.env.HELIUS_API_KEY;
 
@@ -50,12 +95,12 @@ export async function GET() {
     }
 
     const signatures = (sigData.result || [])
-  .filter((item: any) => item.err === null)
+  .filter((item: SignatureItem) => item.err === null)
   .slice(0, 100);
 
     // 2. Fetch transactions IN PARALLEL
     const transactions = await Promise.all(
-      signatures.map(async (item: any) => {
+signatures.map(async (item: SignatureItem) => {
         try {
           const response = await fetch(rpcUrl, {
             method: "POST",
@@ -90,7 +135,7 @@ export async function GET() {
       })
     );
 
-    const launches: any[] = [];
+    const launches: Launch[] = [];
 
     // 3. Find genuine Pump creation transactions
     for (const result of transactions) {
@@ -127,7 +172,7 @@ for (const instruction of instructions) {
 
   if (!firstPubkey) continue;
 
-  const keyInfo = keys.find((key: any) => {
+  const keyInfo = keys.find((key: string | { pubkey?: string; signer?: boolean }) => {
     const pubkey =
       typeof key === "string"
         ? key
@@ -242,12 +287,12 @@ const combinedLaunches = Array.from(
   };
 }
 
-      const dexData = await dexResponse.json();
+      const dexData = (await dexResponse.json()) as { pairs?: DexPair[] };
 
-      const solanaPairs = (dexData.pairs || [])
-        .filter((pair: any) => pair.chainId === "solana")
-        .sort(
-          (a: any, b: any) =>
+const solanaPairs = (dexData.pairs || [])
+  .filter((pair) => pair.chainId === "solana")
+  .sort(
+    (a, b) =>
             (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
         );
 
@@ -267,18 +312,18 @@ const combinedLaunches = Array.from(
 const socials = pair.info?.socials || [];
 
 const website =
-  websites.find((item: any) => item.url)?.url || null;
+ websites.find((item) => item.url)?.url || null;
 
 const twitter =
   socials.find(
-    (item: any) =>
+    (item) =>
       item.type?.toLowerCase() === "twitter" ||
       item.type?.toLowerCase() === "x"
   )?.url || null;
 
 const telegram =
   socials.find(
-    (item: any) => item.type?.toLowerCase() === "telegram"
+    (item) => item.type?.toLowerCase() === "telegram"
   )?.url || null;
 const socialPresenceCount =
   (website ? 1 : 0) +

@@ -21,21 +21,37 @@ export type SocialScore = {
   };
 };
 
-export function extractSocialLinks(token: any): SocialLinks {
+type SocialWebsite = {
+  url?: string | null;
+};
+
+type SocialItem = {
+  type?: string | null;
+  url?: string | null;
+};
+
+type TokenSocialInfo = {
+  info?: {
+    websites?: SocialWebsite[];
+    socials?: SocialItem[];
+  };
+};
+
+export function extractSocialLinks(token: TokenSocialInfo): SocialLinks {
   const websites = token.info?.websites || [];
   const socials = token.info?.socials || [];
 
   const website =
-    websites.find((site: any) => site.url)?.url || null;
+    websites.find((site) => site.url)?.url || null;
 
   const twitter =
     socials.find(
-      (social: any) => social.type?.toLowerCase() === "twitter"
+      (social) => social.type?.toLowerCase() === "twitter"
     )?.url || null;
 
   const telegram =
     socials.find(
-      (social: any) => social.type?.toLowerCase() === "telegram"
+      (social) => social.type?.toLowerCase() === "telegram"
     )?.url || null;
 
   return {
