@@ -14,25 +14,48 @@ import {
 
 type DexPair = {
   chainId?: string;
+
+  baseToken?: {
+    name?: string;
+    symbol?: string;
+    address?: string;
+  };
+
+  info?: {
+    websites?: {
+      url?: string | null;
+    }[];
+    socials?: {
+      type?: string | null;
+      url?: string | null;
+    }[];
+  };
+
+  priceUsd?: string;
+  url?: string;
   marketCap?: number;
   fdv?: number;
+
   liquidity?: {
     usd?: number;
   };
+
   volume?: {
     h24?: number;
   };
+
   priceChange?: {
     h24?: number;
   };
+
   txns?: {
     h24?: {
       buys?: number;
       sells?: number;
     };
   };
+
   pairCreatedAt?: number;
-  [key: string]: unknown;
 };
 
 export async function GET() {
