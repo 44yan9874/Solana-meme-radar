@@ -171,3 +171,9 @@ export function extractTwitterUsername(url: string | null): string | null {
     return null;
   }
 }
+
+export function buildTwitterProfileUrl(username: string | null): string | null {
+  if (!username) return null;
+
+  return `https://x.com/${username}`;
+}

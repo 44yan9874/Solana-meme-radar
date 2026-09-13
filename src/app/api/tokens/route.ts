@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import {
   extractSocialLinks,
   calculateSocialScore,
- } from "@/social";
+  extractTwitterUsername,
+  buildTwitterProfileUrl,
+} from "@/social";
 
  import { getTelegramMemberCount } from "@/lib/telegram";
 
@@ -133,6 +135,8 @@ if (!pairCreatedAt || ageMinutes > MAX_AGE_MINUTES) {
   continue;
 }
 const socialLinks = extractSocialLinks(solanaPair);
+const twitterUsername = extractTwitterUsername(socialLinks.twitter);
+const twitterProfileUrl = buildTwitterProfileUrl(twitterUsername);
 const telegramMembers = await getTelegramMemberCount(
   socialLinks.telegram
 );
@@ -177,7 +181,8 @@ buyPressure,
           ageMinutes,
           dexUrl: solanaPair.url || "#",
           score,
-          twitter: socialLinks.twitter,
+         twitter: twitterProfileUrl,
+twitterUsername,
 telegram: socialLinks.telegram,
 website: socialLinks.website,
 socialScore: socialScore.score,
