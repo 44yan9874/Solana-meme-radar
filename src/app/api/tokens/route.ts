@@ -7,7 +7,7 @@ import {
 } from "@/social";
 
  import { getTelegramMemberCount } from "@/lib/telegram";
-
+import { getTwitterMetrics } from "@/lib/twitter";
  type BoostedToken = {
   chainId?: string;
   tokenAddress: string;
@@ -140,11 +140,12 @@ const twitterProfileUrl = buildTwitterProfileUrl(twitterUsername);
 const telegramMembers = await getTelegramMemberCount(
   socialLinks.telegram
 );
+const twitterMetrics = await getTwitterMetrics(twitterUsername);
 const socialMetrics = {
-  twitterFollowers: null,
-  twitterEngagement: null,
+  twitterFollowers: twitterMetrics.followers,
+  twitterEngagement: twitterMetrics.engagement,
   telegramMembers,
-  mentions24h: null,
+  mentions24h: twitterMetrics.mentions24h,
 };
 const socialScore = calculateSocialScore(
   socialLinks,
