@@ -126,10 +126,38 @@ if (!mentionsResponse.ok) {
   );
 }
 const mentionsData = await mentionsResponse.json();
-
-const mentionTweets = Array.isArray(mentionsData.tweets)
+const nextCursor =
+  typeof mentionsData.next_cursor === "string"
+    ? mentionsData.next_cursor
+    : null;
+let mentionTweets = Array.isArray(mentionsData.tweets)
   ? mentionsData.tweets
   : [];
+
+  if (nextCursor) {
+  const nextMentionsResponse = await fetch(
+    `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(
+      mentionsQuery
+    )}&type=Latest&cursor=${encodeURIComponent(nextCursor)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (nextMentionsResponse.ok) {
+    const nextMentionsData = await nextMentionsResponse.json();
+
+    const nextMentionTweets = Array.isArray(nextMentionsData.tweets)
+      ? nextMentionsData.tweets
+      : [];
+
+    mentionTweets = [...mentionTweets, ...nextMentionTweets];
+  }
+}
 
 const mentions24h = mentionTweets.length;
 console.log(
