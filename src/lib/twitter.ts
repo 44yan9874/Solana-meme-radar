@@ -104,10 +104,41 @@ const engagement =
     console.log(
   `SocialData @${cleanUsername}: ${tweets.length} tweets, avg engagement ${engagement}`
 );
+const since24h = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
+
+const mentionsQuery =
+  `@${cleanUsername} -from:${cleanUsername} since_time:${since24h}`;
+  const mentionsResponse = await fetch(
+  `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(
+    mentionsQuery
+  )}&type=Latest`,
+  {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  }
+);
+if (!mentionsResponse.ok) {
+  throw new Error(
+    `SocialData mentions request failed: ${mentionsResponse.status} ${mentionsResponse.statusText}`
+  );
+}
+const mentionsData = await mentionsResponse.json();
+
+const mentionTweets = Array.isArray(mentionsData.tweets)
+  ? mentionsData.tweets
+  : [];
+
+const mentions24h = mentionTweets.length;
+console.log(
+  `SocialData @${cleanUsername}: ${mentions24h} mentions in last 24h`
+);
     return {
       followers,
      engagement,
-      mentions24h: null,
+      mentions24h,
     };
   } catch (error) {
     console.error(`Failed to fetch X metrics for @${username}:`, error);
