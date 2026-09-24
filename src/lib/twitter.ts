@@ -15,11 +15,49 @@ export async function getTwitterMetrics(
     };
   }
 
-  try {
-    // X metrics provider will be connected here.
-    // For now we fail safely instead of inventing social data.
+  const apiKey = process.env.SOCIALDATA_API_KEY;
+
+  if (!apiKey) {
+    console.error("SOCIALDATA_API_KEY is missing");
+
     return {
       followers: null,
+      engagement: null,
+      mentions24h: null,
+    };
+  }
+
+  try {
+    const cleanUsername = username.replace(/^@/, "");
+
+    const response = await fetch(
+      `https://api.socialdata.tools/twitter/user/${encodeURIComponent(
+        cleanUsername
+      )}`,
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `SocialData request failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const user = await response.json();
+
+    const followers =
+      typeof user.followers_count === "number"
+        ? user.followers_count
+        : null;
+console.log(`SocialData @${cleanUsername}: ${followers} followers`);
+    return {
+      followers,
       engagement: null,
       mentions24h: null,
     };
