@@ -86,10 +86,24 @@ export function calculateTractionScore(
   }
 
   if (metrics.twitterEngagement !== null) {
-    if (metrics.twitterEngagement >= 10) score += 30;
-    else if (metrics.twitterEngagement >= 5) score += 20;
-    else if (metrics.twitterEngagement >= 2) score += 10;
+  let engagementPoints = 0;
+
+  if (metrics.twitterEngagement >= 15) engagementPoints = 30;
+  else if (metrics.twitterEngagement >= 8) engagementPoints = 24;
+  else if (metrics.twitterEngagement >= 4) engagementPoints = 18;
+  else if (metrics.twitterEngagement >= 2) engagementPoints = 10;
+  else if (metrics.twitterEngagement >= 1) engagementPoints = 5;
+
+  if (metrics.twitterFollowers !== null) {
+    if (metrics.twitterFollowers < 100) {
+      engagementPoints = Math.min(engagementPoints, 10);
+    } else if (metrics.twitterFollowers < 250) {
+      engagementPoints = Math.min(engagementPoints, 20);
+    }
   }
+
+  score += engagementPoints;
+}
 
   return Math.min(score, 100);
 }

@@ -55,9 +55,9 @@ export async function getTwitterMetrics(
       typeof user.followers_count === "number"
         ? user.followers_count
         : null;
-console.log(`SocialData @${cleanUsername}: ${followers} followers`);
+
 const userId = user.id_str ? String(user.id_str) : null;
-console.log(`SocialData @${cleanUsername} user ID: ${userId}`);
+
 if (!userId) {
   return {
     followers,
@@ -97,13 +97,16 @@ const tweets = Array.isArray(tweetsData.tweets)
   0
 );
 
-const engagement =
+const avgInteractions =
   tweets.length > 0
-    ? Math.round(totalEngagement / tweets.length)
+    ? totalEngagement / tweets.length
     : null;
-    console.log(
-  `SocialData @${cleanUsername}: ${tweets.length} tweets, avg engagement ${engagement}`
-);
+
+const engagement =
+  avgInteractions !== null && followers !== null && followers > 0
+    ? Number(((avgInteractions / followers) * 100).toFixed(2))
+    : null;
+  
 const since24h = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
 
 const mentionsQuery =
@@ -134,11 +137,15 @@ let mentionTweets = Array.isArray(mentionsData.tweets)
   ? mentionsData.tweets
   : [];
 
-  if (nextCursor) {
+ let cursor = nextCursor;
+let pagesFetched = 1;
+const MAX_MENTION_PAGES = 5;
+
+while (cursor && pagesFetched < MAX_MENTION_PAGES) {
   const nextMentionsResponse = await fetch(
     `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(
       mentionsQuery
-    )}&type=Latest&cursor=${encodeURIComponent(nextCursor)}`,
+    )}&type=Latest&cursor=${encodeURIComponent(cursor)}`,
     {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -148,21 +155,26 @@ let mentionTweets = Array.isArray(mentionsData.tweets)
     }
   );
 
-  if (nextMentionsResponse.ok) {
-    const nextMentionsData = await nextMentionsResponse.json();
+  if (!nextMentionsResponse.ok) break;
 
-    const nextMentionTweets = Array.isArray(nextMentionsData.tweets)
-      ? nextMentionsData.tweets
-      : [];
+  const nextMentionsData = await nextMentionsResponse.json();
 
-    mentionTweets = [...mentionTweets, ...nextMentionTweets];
-  }
+  const nextMentionTweets = Array.isArray(nextMentionsData.tweets)
+    ? nextMentionsData.tweets
+    : [];
+
+  mentionTweets = [...mentionTweets, ...nextMentionTweets];
+
+  cursor =
+    typeof nextMentionsData.next_cursor === "string"
+      ? nextMentionsData.next_cursor
+      : null;
+
+  pagesFetched++;
 }
 
 const mentions24h = mentionTweets.length;
-console.log(
-  `SocialData @${cleanUsername}: ${mentions24h} mentions in last 24h`
-);
+
     return {
       followers,
      engagement,
