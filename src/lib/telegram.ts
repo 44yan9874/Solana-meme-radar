@@ -45,3 +45,38 @@ export async function getTelegramMemberCount(
     return null;
   }
 }
+
+export type TelegramMetrics = {
+  members: number | null;
+  hasTelegram: boolean;
+  username: string | null;
+};
+
+export async function getTelegramMetrics(
+  telegramUrl: string | null | undefined
+): Promise<TelegramMetrics> {
+  if (!telegramUrl) {
+    return {
+      members: null,
+      hasTelegram: false,
+      username: null,
+    };
+  }
+
+  const match = telegramUrl.match(
+    /(?:t\.me|telegram\.me)\/(?:joinchat\/|\+)?([^/?#]+)/
+  );
+
+  const username =
+    match && !telegramUrl.includes("/+")
+      ? match[1]
+      : null;
+
+  const members = await getTelegramMemberCount(telegramUrl);
+
+  return {
+    members,
+    hasTelegram: true,
+    username,
+  };
+}

@@ -73,11 +73,7 @@ export function calculateTractionScore(
     else if (metrics.twitterFollowers >= 100) score += 5;
   }
 
-  if (metrics.telegramMembers !== null) {
-    if (metrics.telegramMembers >= 5000) score += 20;
-    else if (metrics.telegramMembers >= 1000) score += 12;
-    else if (metrics.telegramMembers >= 250) score += 6;
-  }
+  
 
   if (metrics.mentions24h !== null) {
     if (metrics.mentions24h >= 100) score += 25;
@@ -127,7 +123,19 @@ export function calculateSocialScore(
     twitterScore = 10;
   }
 }
-  if (links.telegram) telegramScore = 35;
+  if (links.telegram) {
+  if (metrics?.telegramMembers != null) {
+    if (metrics.telegramMembers >= 10000) telegramScore = 35;
+    else if (metrics.telegramMembers >= 5000) telegramScore = 30;
+    else if (metrics.telegramMembers >= 1000) telegramScore = 22;
+    else if (metrics.telegramMembers >= 250) telegramScore = 14;
+    else if (metrics.telegramMembers >= 50) telegramScore = 8;
+    else telegramScore = 3;
+  } else {
+    // Telegram exists, but member count could not be verified.
+    telegramScore = 5;
+  }
+}
   if (links.website) websiteScore = 30;
   const tractionScore = metrics
   ? calculateTractionScore(metrics)

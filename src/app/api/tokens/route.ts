@@ -6,7 +6,7 @@ import {
   buildTwitterProfileUrl,
 } from "@/social";
 
- import { getTelegramMemberCount } from "@/lib/telegram";
+ import { getTelegramMetrics } from "@/lib/telegram";
 import { getTwitterMetrics } from "@/lib/twitter";
  type BoostedToken = {
   chainId?: string;
@@ -137,9 +137,10 @@ if (!pairCreatedAt || ageMinutes > MAX_AGE_MINUTES) {
 const socialLinks = extractSocialLinks(solanaPair);
 const twitterUsername = extractTwitterUsername(socialLinks.twitter);
 const twitterProfileUrl = buildTwitterProfileUrl(twitterUsername);
-const telegramMembers = await getTelegramMemberCount(
+const telegramMetrics = await getTelegramMetrics(
   socialLinks.telegram
 );
+const telegramMembers = telegramMetrics.members;
 const twitterMetrics = await getTwitterMetrics(twitterUsername);
 const socialMetrics = {
   twitterFollowers: twitterMetrics.followers,
