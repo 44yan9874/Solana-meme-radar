@@ -15,6 +15,7 @@ type Token = {
   dexUrl: string;
   twitter: string | null;
 telegram: string | null;
+telegramMembers: number | null;
 website: string | null;
 socialScore: number;
 socialBreakdown: {
@@ -158,7 +159,11 @@ export default function Home() {
         rel="noopener noreferrer"
         className="text-blue-400 hover:underline"
       >
-        TG
+        
+TG {token.telegramMembers != null
+  ? `(${token.telegramMembers.toLocaleString()} members)`
+  : ""}
+
       </a>
     )}
 
