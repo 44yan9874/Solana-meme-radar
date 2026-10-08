@@ -163,8 +163,21 @@ const socialScore = calculateSocialScore(
   ageMinutes,
 });
 
-const score = Math.round(
+const combinedScore = Math.round(
   baseScore * 0.75 + socialScore.score * 0.25
+);
+
+// Liquidity protection for live trading tokens
+const liquidityCap =
+  !Number.isFinite(liquidity) || liquidity <= 0 ? 10 :
+  liquidity < 1_000 ? 20 :
+  liquidity < 5_000 ? 35 :
+  liquidity < 10_000 ? 55 :
+  100;
+
+const score = Math.max(
+  0,
+  Math.min(combinedScore, liquidityCap)
 );
 
         results.push({
