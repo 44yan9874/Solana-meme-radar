@@ -8,6 +8,7 @@ import {
 
  import { getTelegramMetrics } from "@/lib/telegram";
 import { getTwitterMetrics } from "@/lib/twitter";
+import { recordLiquiditySnapshot, getLiquidityDropPercent } from "@/lib/liquidity";
  type BoostedToken = {
   chainId?: string;
   tokenAddress: string;
@@ -134,6 +135,13 @@ const ageMinutes = pairCreatedAt
 if (!pairCreatedAt || ageMinutes > MAX_AGE_MINUTES) {
   continue;
 }
+
+const liquidityDropPercent = await getLiquidityDropPercent(
+  token.tokenAddress,
+  liquidity
+);
+
+await recordLiquiditySnapshot(token.tokenAddress, liquidity);
 const socialLinks = extractSocialLinks(solanaPair);
 const twitterUsername = extractTwitterUsername(socialLinks.twitter);
 const twitterProfileUrl = buildTwitterProfileUrl(twitterUsername);
@@ -180,6 +188,15 @@ const score = Math.max(
   Math.min(combinedScore, liquidityCap)
 );
 
+const liquidityDropPenalty =
+  liquidityDropPercent === null ? 0 :
+  liquidityDropPercent >= 50 ? 30 :
+  liquidityDropPercent >= 30 ? 15 :
+  liquidityDropPercent >= 15 ? 5 :
+  0;
+
+const finalScore = Math.max(0, score - liquidityDropPenalty);
+
         results.push({
           name: solanaPair.baseToken?.name || "Unknown",
           symbol: solanaPair.baseToken?.symbol || "UNKNOWN",
@@ -195,7 +212,7 @@ sells24h,
 buyPressure,
           ageMinutes,
           dexUrl: solanaPair.url || "#",
-          score,
+          score: finalScore,
          twitter: twitterProfileUrl,
 twitterUsername,
 telegram: socialLinks.telegram,
