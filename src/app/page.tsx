@@ -232,15 +232,28 @@ TG {token.telegramMembers != null
                     </td>
 
                     <td className="p-4">
-                      <a
-                        href={token.dexUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:underline"
-                      >
-                        View
-                      </a>
-                    </td>
+  <div className="flex flex-col gap-2">
+    <a
+      href={token.dexUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-400 hover:underline"
+    >
+      View DEX
+    </a>
+    <button
+      type="button"
+      onClick={() =>
+        setSelectedChart(
+          selectedChart === token.address ? null : token.address
+        )
+      }
+      className="text-left text-purple-400 hover:text-purple-300"
+    >
+      {selectedChart === token.address ? "Hide Chart" : "View Chart"}
+    </button>
+  </div>
+</td>
                   </tr>
                 ))}
               </tbody>
@@ -248,6 +261,11 @@ TG {token.telegramMembers != null
           </div>
         )}
       </div>
+   {selectedChart && (
+  <div className="mt-8">
+    <LiquidityChart address={selectedChart} />
+  </div>
+)}
     </main>
   );
 }
