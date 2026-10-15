@@ -77,3 +77,41 @@ export async function getLiquidityDropPercent(
     ((previousLiquidity - currentLiquidity) / previousLiquidity) * 100
   );
 }
+
+
+export async function getLiquidityHistory(
+  tokenAddress: string,
+  hours: number = 24
+): Promise<{ liquidity: number; timestamp: string }[]> {
+  if (!supabase || !tokenAddress.trim()) return [];
+
+  const safeHours = [1, 6, 24].includes(hours) ? hours : 24;
+  const cutoff = new Date(
+    Date.now() - safeHours * 60 * 60 * 1000
+  ).toISOString();
+
+  const { data, error } = await supabase
+    .from("liquidity_snapshots")
+    .select("liquidity_usd, recorded_at")
+    .eq("token_address", tokenAddress)
+    .gte("recorded_at", cutoff)
+    .order("recorded_at", { ascending: true })
+    .limit(500);
+
+  if (error) {
+    console.error("Liquidity chart history error:", error.message);
+    return [];
+  }
+
+  return (data || [])
+    .map((snapshot) => ({
+      liquidity: Number(snapshot.liquidity_usd),
+      timestamp: snapshot.recorded_at,
+    }))
+    .filter(
+      (snapshot) =>
+        Number.isFinite(snapshot.liquidity) &&
+        snapshot.liquidity >= 0 &&
+        !Number.isNaN(Date.parse(snapshot.timestamp))
+    );
+}

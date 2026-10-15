@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
+import LiquidityChart from "@/components/LiquidityChart";
 type Token = {
   name: string;
   symbol: string;
@@ -31,6 +31,7 @@ socialBreakdown: {
 export default function Home() {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedChart, setSelectedChart] = useState<string | null>(null);
 
   useEffect(() => {
     loadTokens();
