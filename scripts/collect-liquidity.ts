@@ -13,6 +13,32 @@ const supabase = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+async function discoverSolanaTokens(): Promise<string[]> {
+  const response = await fetch(
+    "https://api.dexscreener.com/token-boosts/latest/v1"
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Token discovery failed: ${response.status}`
+    );
+  }
+
+  const tokens = (await response.json()) as Array<{
+    chainId: string;
+    tokenAddress: string;
+  }>;
+
+  return [
+    ...new Set(
+      tokens
+        .filter((token) => token.chainId === "solana")
+        .map((token) => token.tokenAddress)
+        .filter(Boolean)
+    ),
+  ].slice(0, 20);
+}
+
 async function main() {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -25,9 +51,23 @@ async function main() {
 
   if (error) throw error;
 
-  const addresses = [...new Set(
-    (data ?? []).map(row => row.token_address).filter(Boolean)
-  )].slice(0, 100);
+  
+let discoveredAddresses: string[] = [];
+
+try {
+  discoveredAddresses = await discoverSolanaTokens();
+  console.log("Discovered:", discoveredAddresses.length, "tokens");
+} catch (error) {
+  console.error("Token discovery failed:", error);
+}
+
+const addresses = [
+  ...new Set([
+    ...discoveredAddresses,
+    ...(data ?? []).map((row) => row.token_address).filter(Boolean),
+  ]),
+].slice(0, 100);
+
 
   console.log("Tracking", addresses.length, "tokens");
 
