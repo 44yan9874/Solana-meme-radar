@@ -1,8 +1,61 @@
 import { NextResponse } from "next/server";
 
+import {
+  rememberLaunch,
+  markLaunchLive,
+  getWatchedLaunches,
+} from "../../../lib/launchWatchlist";
+
+import { calculateSocialScore } from "../../../social";
+
 const PUMP_PROGRAM =
   "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+type SignatureItem = {
+  signature: string;
+  err: unknown | null;
+};
 
+type Launch = {
+  mint: string;
+  signature: string;
+  ageSeconds: number;
+  age: string;
+  launchpad: string;
+  stage: string;
+  status: string;
+  tokenUrl: string;
+  transactionUrl: string;
+};
+
+type DexPair = {
+  chainId?: string;
+  liquidity?: {
+    usd?: number;
+  };
+  info?: {
+    websites?: {
+      url?: string | null;
+    }[];
+    socials?: {
+      type?: string | null;
+      url?: string | null;
+    }[];
+  };
+  baseToken?: {
+    name?: string;
+    symbol?: string;
+  };
+  priceUsd?: string;
+  marketCap?: number;
+  fdv?: number;
+  volume?: {
+    h24?: number;
+  };
+  priceChange?: {
+    h24?: number;
+  };
+  url?: string;
+};
 export async function GET() {
   const apiKey = process.env.HELIUS_API_KEY;
 
@@ -42,12 +95,12 @@ export async function GET() {
     }
 
     const signatures = (sigData.result || [])
-  .filter((item: any) => item.err === null)
-  .slice(0, 20);
+  .filter((item: SignatureItem) => item.err === null)
+  .slice(0, 100);
 
     // 2. Fetch transactions IN PARALLEL
     const transactions = await Promise.all(
-      signatures.map(async (item: any) => {
+signatures.map(async (item: SignatureItem) => {
         try {
           const response = await fetch(rpcUrl, {
             method: "POST",
@@ -82,7 +135,7 @@ export async function GET() {
       })
     );
 
-    const launches: any[] = [];
+    const launches: Launch[] = [];
 
     // 3. Find genuine Pump creation transactions
     for (const result of transactions) {
@@ -90,58 +143,55 @@ export async function GET() {
 
       const tx = result.transaction;
 
-      const logs: string[] =
-        tx.meta?.logMessages || [];
-
-      const isCreate = logs.some(
-        (log) =>
-          log.includes("Instruction: CreateV2") ||
-          log.includes("Instruction: Create")
-      );
-
-      if (!isCreate) continue;
-
       const keys =
-        tx.transaction?.message?.accountKeys || [];
+  tx.transaction?.message?.accountKeys || [];
 
-      // Pump create_v2 account #1 = new mint.
-      // Find Pump instruction and take its first account.
-      let mint: string | null = null;
+const instructions =
+  tx.transaction?.message?.instructions || [];
 
-      const instructions =
-        tx.transaction?.message?.instructions || [];
+let mint: string | null = null;
 
-      for (const instruction of instructions) {
-        if (
-          instruction.programId === PUMP_PROGRAM &&
-          Array.isArray(instruction.accounts) &&
-          instruction.accounts.length > 0
-        ) {
-          const firstAccount = instruction.accounts[0];
+// A Pump create_v2 instruction has the new mint as account #1.
+// The mint account is also a signer, which lets us distinguish
+// creation instructions from normal buys/sells/other Pump activity.
+for (const instruction of instructions) {
+  if (
+    instruction.programId !== PUMP_PROGRAM ||
+    !Array.isArray(instruction.accounts) ||
+    instruction.accounts.length === 0
+  ) {
+    continue;
+  }
 
-          if (typeof firstAccount === "string") {
-            mint = firstAccount;
-          } else if (firstAccount?.pubkey) {
-            mint = firstAccount.pubkey;
-          }
+  const firstAccount = instruction.accounts[0];
 
-          if (mint) break;
-        }
-      }
+  const firstPubkey =
+    typeof firstAccount === "string"
+      ? firstAccount
+      : firstAccount?.pubkey;
 
-      // Fallback for parsed transaction formats
-      if (!mint && keys.length > 0) {
-        const possibleMint = keys.find(
-          (key: any) =>
-            key.signer === true &&
-            key.writable === true &&
-            key.pubkey !== PUMP_PROGRAM
-        );
+  if (!firstPubkey) continue;
 
-        mint = possibleMint?.pubkey || null;
-      }
+  const keyInfo = keys.find((key: string | { pubkey?: string; signer?: boolean }) => {
+    const pubkey =
+      typeof key === "string"
+        ? key
+        : key?.pubkey;
 
-      if (!mint) continue;
+    return pubkey === firstPubkey;
+  });
+
+  const isSigner =
+    typeof keyInfo === "object" &&
+    keyInfo?.signer === true;
+
+  if (isSigner) {
+    mint = firstPubkey;
+    break;
+  }
+}
+
+if (!mint) continue;
 
       const timestamp = tx.blockTime
         ? tx.blockTime * 1000
@@ -153,7 +203,7 @@ export async function GET() {
           (Date.now() - timestamp) / 1000
         )
       );
-
+rememberLaunch(mint);
       launches.push({
         mint,
         signature: result.signature,
@@ -189,9 +239,145 @@ export async function GET() {
         a.ageSeconds - b.ageSeconds
     );
 
+const watchedLaunches = getWatchedLaunches().map((watched) => {
+  const ageSeconds = Math.max(
+    0,
+    Math.floor((Date.now() - watched.firstSeen) / 1000)
+  );
+
+  return {
+    mint: watched.mint,
+    signature: "",
+    ageSeconds,
+    age: formatAge(ageSeconds),
+    launchpad: "Pump.fun",
+    stage: "BONDING_CURVE",
+    status: "PRE-LAUNCH",
+    tokenUrl: `https://solscan.io/token/${watched.mint}`,
+    transactionUrl: "#",
+  };
+});
+
+const combinedLaunches = Array.from(
+  new Map(
+    [...watchedLaunches, ...unique].map((coin) => [
+      coin.mint,
+      coin,
+    ])
+  ).values()
+);
+    const enrichedLaunches = await Promise.all(
+  combinedLaunches.map(async (coin) => {
+    try {
+      const dexResponse = await fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${coin.mint}`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!dexResponse.ok) {
+  return {
+    ...coin,
+    dexStatus: "WAITING_FOR_PAIR",
+    website: null,
+    twitter: null,
+    telegram: null,
+    socialScore: 0,
+  };
+}
+
+      const dexData = (await dexResponse.json()) as { pairs?: DexPair[] };
+
+const solanaPairs = (dexData.pairs || [])
+  .filter((pair) => pair.chainId === "solana")
+  .sort(
+    (a, b) =>
+            (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+        );
+
+      const pair = solanaPairs[0];
+
+      if (!pair) {
+  return {
+    ...coin,
+    dexStatus: "WAITING_FOR_PAIR",
+    website: null,
+    twitter: null,
+    telegram: null,
+    socialScore: 0,
+  };
+}  
+      const websites = pair.info?.websites || [];
+const socials = pair.info?.socials || [];
+
+const website =
+ websites.find((item) => item.url)?.url || null;
+
+const twitter =
+  socials.find(
+    (item) =>
+      item.type?.toLowerCase() === "twitter" ||
+      item.type?.toLowerCase() === "x"
+  )?.url || null;
+
+const telegram =
+  socials.find(
+    (item) => item.type?.toLowerCase() === "telegram"
+  )?.url || null;
+const socialPresenceCount =
+  (website ? 1 : 0) +
+  (twitter ? 1 : 0) +
+  (telegram ? 1 : 0);
+  
+const socialScore = calculateSocialScore({
+  website,
+  twitter,
+  telegram,
+}).score;
+
+  const socialStrength =
+  socialPresenceCount === 3
+    ? "STRONG"
+    : socialPresenceCount === 2
+    ? "MEDIUM"
+    : socialPresenceCount === 1
+    ? "WEAK"
+    : "NONE";
+markLaunchLive(coin.mint);
+      return {
+        ...coin,
+        dexStatus: "LIVE",
+        website,
+twitter,
+telegram,
+socialPresenceCount,
+socialStrength,
+socialScore,
+        name: pair.baseToken?.name || "Unknown",
+        symbol: pair.baseToken?.symbol || "UNKNOWN",
+        priceUsd: pair.priceUsd || "0",
+        marketCap: pair.marketCap || pair.fdv || 0,
+        liquidity: pair.liquidity?.usd || 0,
+        volume24h: pair.volume?.h24 || 0,
+        change24h: pair.priceChange?.h24 || 0,
+        dexUrl: pair.url || "#",
+      };
+    } catch {
+  return {
+    ...coin,
+    dexStatus: "WAITING_FOR_PAIR",
+    website: null,
+    twitter: null,
+    telegram: null,
+    socialScore: 0,
+  };
+}
+  })
+);
     return NextResponse.json({
-      launches: unique,
-      count: unique.length,
+      launches: enrichedLaunches,
+count: enrichedLaunches.length,
       scannedTransactions: signatures.length,
       scanner: "Pump.fun new coin detector",
     });

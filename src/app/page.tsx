@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
+import LiquidityChart from "@/components/LiquidityChart";
 type Token = {
   name: string;
   symbol: string;
@@ -9,16 +9,29 @@ type Token = {
   priceUsd: string;
   marketCap: number;
   liquidity: number;
+  liquidityDropPercent: number | null;
+liquidityDropPenalty: number;
   volume24h: number;
   change24h: number;
   ageMinutes: number;
   dexUrl: string;
+  twitter: string | null;
+telegram: string | null;
+telegramMembers: number | null;
+website: string | null;
+socialScore: number;
+socialBreakdown: {
+  twitter: number;
+  telegram: number;
+  website: number;
+};
   score: number;
 };
 
 export default function Home() {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedChart, setSelectedChart] = useState<string | null>(null);
 
   useEffect(() => {
     loadTokens();
@@ -89,10 +102,12 @@ export default function Home() {
                   <th className="p-4 text-left">Price</th>
                   <th className="p-4 text-left">Market Cap</th>
                   <th className="p-4 text-left">Liquidity</th>
+                  <th className="p-4 text-left">Liquidity Risk</th>
                   <th className="p-4 text-left">24H Volume</th>
                   <th className="p-4 text-left">24H Change</th>
                   <th className="p-4 text-left">Age</th>
-                  <th className="p-4 text-left">Radar Score</th>
+                  <th className="p-4 text-left">Socials</th>
+                  <th className="p-4 text-left">Combined Score</th>
                   <th className="p-4 text-left">DEX</th>
                 </tr>
               </thead>
@@ -114,6 +129,35 @@ export default function Home() {
 
                     <td className="p-4">${formatNumber(token.marketCap)}</td>
                     <td className="p-4">${formatNumber(token.liquidity)}</td>
+                    <td className="p-4">
+  {token.liquidityDropPercent === null ? (
+    <span className="text-gray-400">Insufficient history</span>
+  ) : (
+    <div className="flex flex-col gap-1">
+      <span
+        className={
+          token.liquidityDropPercent >= 30
+            ? "text-red-400 font-semibold"
+            : token.liquidityDropPercent >= 15
+            ? "text-yellow-400 font-semibold"
+            : "text-green-400"
+        }
+      >
+        {token.liquidityDropPercent.toFixed(2)}% drop
+      </span>
+      <span className="text-xs text-gray-400">
+        {token.liquidityDropPercent >= 30
+          ? "High risk"
+          : token.liquidityDropPercent >= 15
+          ? "Warning"
+          : "No significant drop"}
+        {token.liquidityDropPenalty > 0
+          ? ` · -${token.liquidityDropPenalty} pts`
+          : ""}
+      </span>
+    </div>
+  )}
+</td>
                     <td className="p-4">${formatNumber(token.volume24h)}</td>
 
                     <td
@@ -127,6 +171,50 @@ export default function Home() {
                     </td>
                     <td className="p-4">
   {formatAge(token.ageMinutes)}
+</td>
+<td className="p-4">
+  <div className="flex gap-2 items-center">
+    {token.twitter && (
+      <a
+        href={token.twitter}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-400 hover:underline"
+      >
+        X
+      </a>
+    )}
+
+    {token.telegram && (
+      <a
+        href={token.telegram}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-400 hover:underline"
+      >
+        
+TG {token.telegramMembers != null
+  ? `(${token.telegramMembers.toLocaleString()} members)`
+  : ""}
+
+      </a>
+    )}
+
+    {token.website && (
+      <a
+        href={token.website}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-400 hover:underline"
+      >
+        Web
+      </a>
+    )}
+
+    <span className="text-gray-400">
+      {token.socialScore}/100
+    </span>
+  </div>
 </td>
 
                     <td className="p-4">
@@ -144,15 +232,28 @@ export default function Home() {
                     </td>
 
                     <td className="p-4">
-                      <a
-                        href={token.dexUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:underline"
-                      >
-                        View
-                      </a>
-                    </td>
+  <div className="flex flex-col gap-2">
+    <a
+      href={token.dexUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-400 hover:underline"
+    >
+      View DEX
+    </a>
+    <button
+      type="button"
+      onClick={() =>
+        setSelectedChart(
+          selectedChart === token.address ? null : token.address
+        )
+      }
+      className="text-left text-purple-400 hover:text-purple-300"
+    >
+      {selectedChart === token.address ? "Hide Chart" : "View Chart"}
+    </button>
+  </div>
+</td>
                   </tr>
                 ))}
               </tbody>
@@ -160,6 +261,11 @@ export default function Home() {
           </div>
         )}
       </div>
+   {selectedChart && (
+  <div className="mt-8">
+    <LiquidityChart address={selectedChart} />
+  </div>
+)}
     </main>
   );
 }

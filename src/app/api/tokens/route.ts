@@ -1,4 +1,65 @@
 import { NextResponse } from "next/server";
+import {
+  extractSocialLinks,
+  calculateSocialScore,
+  extractTwitterUsername,
+  buildTwitterProfileUrl,
+} from "@/social";
+
+ import { getTelegramMetrics } from "@/lib/telegram";
+import { getTwitterMetrics } from "@/lib/twitter";
+import { recordLiquiditySnapshot, getLiquidityDropPercent } from "@/lib/liquidity";
+ type BoostedToken = {
+  chainId?: string;
+  tokenAddress: string;
+  [key: string]: unknown;
+};
+
+type DexPair = {
+  chainId?: string;
+
+  baseToken?: {
+    name?: string;
+    symbol?: string;
+    address?: string;
+  };
+
+  info?: {
+    websites?: {
+      url?: string | null;
+    }[];
+    socials?: {
+      type?: string | null;
+      url?: string | null;
+    }[];
+  };
+
+  priceUsd?: string;
+  url?: string;
+  marketCap?: number;
+  fdv?: number;
+
+  liquidity?: {
+    usd?: number;
+  };
+
+  volume?: {
+    h24?: number;
+  };
+
+  priceChange?: {
+    h24?: number;
+  };
+
+  txns?: {
+    h24?: {
+      buys?: number;
+      sells?: number;
+    };
+  };
+
+  pairCreatedAt?: number;
+};
 
 export async function GET() {
   try {
@@ -16,11 +77,15 @@ export async function GET() {
       throw new Error("DEX Screener request failed");
     }
 
-    const boostedTokens = await response.json();
+    const boostedTokens = (await response.json()) as BoostedToken[];
 
-    const solanaTokens = boostedTokens
-      .filter((token: any) => token.chainId === "solana")
-      .slice(0, 20);
+    const solanaTokens = Array.from(
+ new Map<string, BoostedToken>(
+  boostedTokens
+    .filter((token) => token.chainId === "solana")
+    .map((token) => [token.tokenAddress, token])
+  ).values()
+).slice(0, 20);
 
     const results = [];
 
@@ -37,13 +102,13 @@ export async function GET() {
           continue;
         }
 
-        const pairData = await pairResponse.json();
-        const pairs = pairData.pairs || [];
+        const pairData = (await pairResponse.json()) as { pairs?: DexPair[] };
+const pairs = pairData.pairs || [];
 
-        const solanaPair = pairs
-          .filter((pair: any) => pair.chainId === "solana")
-          .sort(
-            (a: any, b: any) =>
+const solanaPair = pairs
+  .filter((pair) => pair.chainId === "solana")
+  .sort(
+    (a, b) =>
               (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
           )[0];
 
@@ -55,20 +120,82 @@ const marketCap = solanaPair.marketCap || solanaPair.fdv || 0;
 const liquidity = solanaPair.liquidity?.usd || 0;
 const volume24h = solanaPair.volume?.h24 || 0;
 const change24h = solanaPair.priceChange?.h24 || 0;
-
+const buys24h = solanaPair.txns?.h24?.buys || 0;
+const sells24h = solanaPair.txns?.h24?.sells || 0;
+const buyPressure = buys24h + sells24h > 0
+  ? buys24h / (buys24h + sells24h)
+  : 0;
 const pairCreatedAt = solanaPair.pairCreatedAt || 0;
 
 const ageMinutes = pairCreatedAt
   ? Math.max(0, Math.floor((Date.now() - pairCreatedAt) / 60000))
   : 0;
+  const MAX_AGE_MINUTES = 24 * 60;
 
-        const score = calculateScore({
-          marketCap,
-          liquidity,
-          volume24h,
-          change24h,
-          ageMinutes,
-        });
+if (!pairCreatedAt || ageMinutes > MAX_AGE_MINUTES) {
+  continue;
+}
+
+const liquidityDropPercent = await getLiquidityDropPercent(
+  token.tokenAddress,
+  liquidity
+);
+
+await recordLiquiditySnapshot(token.tokenAddress, liquidity);
+const socialLinks = extractSocialLinks(solanaPair);
+const twitterUsername = extractTwitterUsername(socialLinks.twitter);
+const twitterProfileUrl = buildTwitterProfileUrl(twitterUsername);
+const telegramMetrics = await getTelegramMetrics(
+  socialLinks.telegram
+);
+const telegramMembers = telegramMetrics.members;
+const twitterMetrics = await getTwitterMetrics(twitterUsername);
+const socialMetrics = {
+  twitterFollowers: twitterMetrics.followers,
+  twitterEngagement: twitterMetrics.engagement,
+  telegramMembers,
+  mentions24h: twitterMetrics.mentions24h,
+};
+const socialScore = calculateSocialScore(
+  socialLinks,
+  socialMetrics
+);
+        const baseScore = calculateScore({
+  marketCap,
+  liquidity,
+  volume24h,
+  change24h,
+  buys24h,
+  sells24h,
+  buyPressure,
+  ageMinutes,
+});
+
+const combinedScore = Math.round(
+  baseScore * 0.75 + socialScore.score * 0.25
+);
+
+// Liquidity protection for live trading tokens
+const liquidityCap =
+  !Number.isFinite(liquidity) || liquidity <= 0 ? 10 :
+  liquidity < 1_000 ? 20 :
+  liquidity < 5_000 ? 35 :
+  liquidity < 10_000 ? 55 :
+  100;
+
+const score = Math.max(
+  0,
+  Math.min(combinedScore, liquidityCap)
+);
+
+const liquidityDropPenalty =
+  liquidityDropPercent === null ? 0 :
+  liquidityDropPercent >= 50 ? 30 :
+  liquidityDropPercent >= 30 ? 15 :
+  liquidityDropPercent >= 15 ? 5 :
+  0;
+
+const finalScore = Math.max(0, score - liquidityDropPenalty);
 
         results.push({
           name: solanaPair.baseToken?.name || "Unknown",
@@ -80,9 +207,21 @@ const ageMinutes = pairCreatedAt
           liquidity,
           volume24h,
           change24h,
+          buys24h,
+sells24h,
+buyPressure,
           ageMinutes,
           dexUrl: solanaPair.url || "#",
-          score,
+          score: finalScore,
+          liquidityDropPercent,
+liquidityDropPenalty,
+         twitter: twitterProfileUrl,
+twitterUsername,
+telegram: socialLinks.telegram,
+telegramMembers,
+website: socialLinks.website,
+socialScore: socialScore.score,
+socialBreakdown: socialScore.breakdown,
         });
       } catch (error) {
         console.error("Failed to process token:", error);
@@ -112,70 +251,118 @@ function calculateScore({
   liquidity,
   volume24h,
   change24h,
-  ageMinutes
+  buys24h,
+sells24h,
+buyPressure,
+  ageMinutes,
 }: {
   marketCap: number;
   liquidity: number;
   volume24h: number;
   change24h: number;
+  buys24h: number;
+sells24h: number;
+buyPressure: number;
   ageMinutes: number;
 }) {
   let score = 0;
 
-  // NEW LAUNCH BONUS
-if (ageMinutes > 0 && ageMinutes <= 10) {
-  score += 20;
-} else if (ageMinutes <= 30) {
-  score += 15;
-} else if (ageMinutes <= 60) {
-  score += 10;
-} else if (ageMinutes <= 180) {
-  score += 5;
-}
-
-  // LOW MARKET CAP
-  if (marketCap > 0 && marketCap < 50_000) {
-    score += 30;
-  } else if (marketCap < 100_000) {
-    score += 25;
-  } else if (marketCap < 250_000) {
+  // NEW LAUNCH — max 20
+  if (ageMinutes > 0 && ageMinutes <= 10) {
     score += 20;
-  } else if (marketCap < 500_000) {
+  } else if (ageMinutes <= 30) {
+    score += 17;
+  } else if (ageMinutes <= 60) {
+    score += 14;
+  } else if (ageMinutes <= 180) {
     score += 10;
-  }
-
-  // LIQUIDITY
-  if (liquidity >= 50_000) {
-    score += 25;
-  } else if (liquidity >= 20_000) {
-    score += 20;
-  } else if (liquidity >= 10_000) {
-    score += 15;
-  } else if (liquidity >= 5_000) {
+  } else if (ageMinutes <= 720) {
     score += 5;
   }
 
-  // 24H VOLUME
-  if (volume24h >= 250_000) {
-    score += 25;
-  } else if (volume24h >= 100_000) {
+  // MARKET CAP — max 20
+  if (marketCap >= 25_000 && marketCap < 75_000) {
     score += 20;
-  } else if (volume24h >= 50_000) {
-    score += 15;
-  } else if (volume24h >= 10_000) {
+  } else if (marketCap >= 75_000 && marketCap < 150_000) {
+    score += 18;
+  } else if (marketCap >= 150_000 && marketCap < 300_000) {
+    score += 14;
+  } else if (marketCap >= 300_000 && marketCap < 500_000) {
     score += 10;
+  } else if (marketCap > 0 && marketCap < 25_000) {
+    score += 6;
   }
 
-  // PRICE MOMENTUM
-  if (change24h >= 100) {
+  // LIQUIDITY — max 20
+  if (liquidity >= 75_000) {
     score += 20;
-  } else if (change24h >= 50) {
+  } else if (liquidity >= 40_000) {
+    score += 18;
+  } else if (liquidity >= 20_000) {
+    score += 14;
+  } else if (liquidity >= 10_000) {
+    score += 9;
+  } else if (liquidity >= 5_000) {
+    score += 4;
+  }
+
+  // VOLUME — max 20
+  if (volume24h >= 500_000) {
+    score += 20;
+  } else if (volume24h >= 250_000) {
+    score += 18;
+  } else if (volume24h >= 100_000) {
     score += 15;
-  } else if (change24h >= 20) {
+  } else if (volume24h >= 50_000) {
+    score += 11;
+  } else if (volume24h >= 20_000) {
+    score += 7;
+  } else if (volume24h >= 5_000) {
+    score += 3;
+  }
+
+  // MOMENTUM — max 20
+  if (change24h >= 20 && change24h < 100) {
+    score += 12;
+  } else if (change24h >= 100 && change24h < 300) {
+    score += 18;
+  } else if (change24h >= 300 && change24h < 1000) {
+    score += 20;
+  } else if (change24h >= 1000) {
     score += 10;
   } else if (change24h > 0) {
-    score += 5;
+    score += 6;
   }
 
-  return Math.min(score, 100);
+  // BUY PRESSURE - max 10
+const totalTxns = buys24h + sells24h;
+
+if (totalTxns >= 20) {
+  if (buyPressure >= 0.60 && buyPressure <= 0.75) {
+    score += 10;
+  } else if (buyPressure > 0.50 && buyPressure < 0.60) {
+    score += 6;
+  } else if (buyPressure > 0.75 && buyPressure <= 0.90) {
+    score += 5;
+  } else if (buyPressure < 0.40) {
+    score -= 8;
+  }
+}
+
+  // RISK PENALTIES
+  if (liquidity < 5_000) {
+    score -= 20;
+  }
+
+  if (marketCap > 0 && marketCap < 10_000) {
+    score -= 10;
+  }
+
+  if (change24h <= -50) {
+    score -= 15;
+  } else if (change24h <= -25) {
+    score -= 8;
+  }
+
+  return Math.max(0, Math.min(score, 100));
 }
