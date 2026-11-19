@@ -1,7 +1,12 @@
 
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
-
+type DexPair = {
+  chainId: string;
+  liquidity?: {
+    usd?: number;
+  };
+};
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -84,12 +89,16 @@ const addresses = [
         continue;
       }
 
-      const result = await response.json();
-      const pairs = (result.pairs ?? [])
-        .filter((pair: any) => pair.chainId === "solana")
-        .sort((a: any, b: any) =>
-          (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0)
-        );
+      const result = (await response.json()) as {
+  pairs?: DexPair[];
+};
+
+const pairs = (result.pairs ?? [])
+  .filter((pair) => pair.chainId === "solana")
+  .sort(
+    (a, b) =>
+      (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0)
+  );
 
       const liquidity = pairs[0]?.liquidity?.usd;
 
