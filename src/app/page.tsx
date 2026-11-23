@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import LiquidityChart from "@/components/LiquidityChart";
 type Token = {
   name: string;
@@ -31,6 +31,7 @@ socialBreakdown: {
 export default function Home() {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
+  const isFetchingRef = useRef(false);
   const [selectedChart, setSelectedChart] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,8 +39,12 @@ export default function Home() {
   }, []);
 
   async function loadTokens() {
-    try {
-      setLoading(true);
+  if (isFetchingRef.current) return;
+
+  isFetchingRef.current = true;
+
+  try {
+    setLoading(true);
 
       const response = await fetch("/api/tokens");
       const data = await response.json();
@@ -48,6 +53,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to load tokens:", error);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
   }
